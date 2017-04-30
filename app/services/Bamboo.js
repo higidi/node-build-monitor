@@ -17,7 +17,7 @@ module.exports = function () {
         });
     },
     requestBuilds = function (callback) {
-        var planUri = self.configuration.url + "/rest/api/latest/result/" + self.configuration.planKey + ".json";
+        var planUri = self.configuration.url + "/rest/api/latest/result/" + self.configuration.planKey + ".json?includeAllStates=true";
         var urlParams = {
             "os_authType": "basic"
         };
@@ -54,17 +54,28 @@ module.exports = function () {
             id: self.configuration.slug + '|' + res.number,
             project: res.plan.shortName,
             number: res.number,
-            isRunning: res.state === 'started',
-            startedAt: res.buildStartedTime,
-            finishedAt: res.buildCompletedTime,
+            isRunning: !res.finished && res.lifeCycleState === 'InProgress',
+            startedAt: getStartedAt(res),
+            finishedAt: getFinishedAt(res),
             requestedFor: getAuthors(res.buildReason),
-            status: getStatus(res.state),
-            statusText: res.state,
+            status: getStatus(res),
+            statusText: getStatusText(res),
             reason: striptags(res.buildReason),
             hasErrors: !res.successful,
             hasWarnings: !res.successful,
             url: self.configuration.url + '/browse/' + res.buildResultKey
         };
+    },
+    getStartedAt = function(res) {
+        return new Date(res.buildStartedTime);
+    },
+    getFinishedAt = function(res) {
+        if (!res.finished) {
+
+            return new Date(getStartedAt(res).getTime() + (res.buildDuration || 1));
+        }
+
+        return new Date(res.buildCompletedTime);
     },
     getAuthors = function(reason) {
         var urlRegex = /<a[^>]*>([\s\S]*?)<\/a>/g;
@@ -78,12 +89,17 @@ module.exports = function () {
         }
         return 'System';
     },
-    getStatus = function(state) {
-        if (state === 'started') return "Blue";
-        if (state === 'created') return "Blue";
-        if (state === 'canceled') return "Gray";
-        if (state === 'Failed') return "Red";
-        return "Green";
+    getStatus = function(res) {
+        if (!res.finished && res.lifeCycleState === 'InProgress') return "Blue";
+        if (!res.finished && res.lifeCycleState === 'NotBuilt') return "Gray";
+        if (res.finished && res.successful) return "Green";
+        return "Red";
+    },
+    getStatusText = function(res) {
+      if (!res.finished && res.lifeCycleState === 'InProgress') return "InProgress";
+      if (!res.finished && res.lifeCycleState === 'NotBuilt') return "Stopped";
+      if (res.finished && res.successful) return "Successful";
+      return "Failed";
     };
 
     self.cache = {
