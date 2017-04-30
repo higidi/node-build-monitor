@@ -32,7 +32,7 @@ module.exports = function () {
         });
     },
     requestBuild = function (build, callback) {
-        var planUri = self.configuration.url + "/rest/api/latest/result/" + self.configuration.planKey + "/" + build.number + ".json";
+        var planUri = self.configuration.url + "/rest/api/latest/result/" + build.plan.key + "/" + build.number + ".json";
         var urlParams = {
             "os_authType": "basic"
         };
